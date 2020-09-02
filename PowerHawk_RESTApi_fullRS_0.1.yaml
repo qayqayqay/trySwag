@@ -1,0 +1,2075 @@
+openapi: 3.0.0
+
+info:
+  title: PowerHawk API
+  description: Rest API sluzby pro PowerHawk
+  contact:
+    email: contact@epptec.eu
+  version: '0.0.1'
+
+servers: 
+  - url: http://localhost:8080
+
+paths:
+  /spotreba/{supplyPointID}:
+    get:
+      tags: 
+      - RS-O01Rf - Načtení historie odečtů
+
+      
+      summary: Načtení historie odečtů dle ID odběrného místa
+      description: >
+        Služba pro pro načtení uložených dat pro zobrazení, bez výpočtů.Vrací historii odečtů příslušného odběru( kombinace klient/odběrné místo/typ energie).Využití  1. v přehledu dečtů 2. při změně/zadání smlouvy (změně ceníku) na určité období
+      operationId: getHistory
+      responses:
+        200:
+          description: Historie byla nactena
+          headers: {}
+          content:
+            application/json:
+              schema:
+                properties:
+                 historie_bodu:
+                  $ref: '#/components/schemas/supplyPoint'
+    post:
+      tags: 
+      - RS-O02R - Přidání odečtu-noSQL
+
+      
+      summary: Přidání bodu odečtu pro noSQL databázi
+      requestBody:
+        required: true
+        description: Data přidávaného odečtu
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/supplyPoint'
+      responses:
+        200:
+          description: Odpočet přidán
+    delete:
+      tags: 
+      - RS-O03R - Smazání odečtu-noSQL
+
+      summary: Smazání bodu odečtu pro noSQL databázi
+      responses:
+        200:
+          description: Data smazaného odečtu
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/supplyPoint'        
+    parameters:
+    - name: supplyPointID
+      in: path
+      description: ID hledaneho odectu
+      required: true
+      explode: true
+      schema:
+        type: integer
+        format: int64
+    - name: date
+      in: query
+      description: datum pro identifikaci odečtu
+      required: false
+      schema:
+        type: string
+        format: date
+  /spotreba:    
+    post:
+      tags: 
+      - RS-O04R - Správa odečtů 
+      summary: Služba pro zpracování kolekce operací nad odečty  
+
+      description: >
+        Služba pro zpracování kolekce operací nad odečty (insert, update, delete) - v případě nerelační databáze využívá elementární služby RS-O02R - Přidání odečtu a RS-O03R - Smazání odečtu 
+      operationId: postHistory
+      parameters:
+      - name: operation
+        in: query
+        description: typ požadované operace
+        required: true
+        schema:
+          type: string
+          enum: ["INSERT","UPDATE","DELETE"]
+      requestBody:
+        description: >
+         Zadání atributu identifikujícího konkrétní hledané odběrové místo pro nahrání odečtů.
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/supplyPoint'
+      responses:
+        200:
+          description: Historie byla ulozena (vrací nahraná data pro kontrolu ?)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/supplyPoint'
+  /spotreba/souhrne_naklady/{supplyPointID}:
+    get:
+      tags: 
+      - RS-O05Rf - Načtení souhrných nákladů a spotřeby
+      summary: Služba pro načtení souhrnných nákladů
+      description: Služba pro načtení souhrnných nákladů, které jsou předpočítané. Pro načtení rozpadu nákladů používá RS-C04-Pf Načtení rozpadu nákladů.
+      responses:
+        200:
+          description: Nactené náklady
+          headers: {}
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/obdobi'     
+    
+    parameters:
+    - name: supplyPointID
+      in: path
+      description: ID hledaneho odectu
+      required: true
+      explode: true
+      schema:
+        type: integer
+        format: int64
+    - name: obdobi_id
+      in: query
+      description: ID souhrneho obdobi
+      required: false
+      schema:
+        type: integer
+        format: int64
+    - name: zdroj
+      in: query
+      description: Zdroj?
+      required: false
+      schema:
+        type: string
+        enum: ["Odečty","Dodavatel"]
+    - name: obdobi_typ
+      in: query
+      description: Typ období ?
+      required: false
+      schema:
+        type: string
+        enum: ["Reálné","Predikce"]
+  
+  /spotreba/souhrne_naklady:
+    post:
+      tags:
+      - RS-O09R - Správa souhrných nákladů
+      description: Funkce pro vkládání, mazání a změnu dat souhrných nákladů
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                odber_id:
+                  type: integer
+                  format: int64
+                obdobi:
+                  $ref: '#/components/schemas/obdobi'
+      responses:
+        200:
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  obdobi_id:
+                    type: integer
+                    format: int64
+      parameters:
+      - name: operation
+        in: query
+        description: typ požadované operace
+        required: true
+        schema:
+          type: string
+          enum: ["INSERT","UPDATE","DELETE"]      
+  
+  /supplyPoint:
+    get:
+      tags: 
+      - RS-M05Pf -  Získání všech odběrných míst
+      description: Vrátí všechna odběrná místa pro ID uživatele
+      responses:
+        200:
+          description: OK, vrací odběrná místa
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/odber_jmeno'    
+    post:
+      tags: 
+      - RS-M01Pf - Vytvoření odběrného místa
+      description: uloží odběrné místo do DB, vrátí jeho ID
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/odber_jmeno'
+      responses:
+        200:
+          description: OK
+          content:
+            application/json:
+              schema:
+                  type: integer
+                  format: int64
+    parameters:
+      - name: user_id
+        in: query
+        required: false
+        schema:
+          type: integer
+          format: int64
+  /supplyPoint/{supplyPointID}:
+    put:
+      tags: 
+      - RS-M02Pf - Úprava odběrného místa
+      description: změní údaje o odběrném místě
+      requestBody:
+        content:
+          application/json:
+            schema:
+                  $ref: '#/components/schemas/odber_jmeno'
+
+      responses:
+        200:
+          description: OK
+    delete:
+      tags: 
+      - RS-M03Pf - Smazání odběrného místa
+      description: Smaže určené odběrné místo
+      responses:
+        200:
+          description: OK
+    get:
+      tags: 
+      - RS-M04Pf - Získání odběrného místa
+      description: Vrátí údaje odberného místa pro zadané ID
+      responses:
+        200:
+          description: OK, navrací údaje o odbernem místě
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/odber_jmeno'
+                
+    parameters:
+    - name: supplyPointID
+      in: path
+      required: true
+      schema:
+        type: integer
+        format: int64
+  
+  /supplyPoint/characteristics/{supplyPointID}:
+    parameters:
+    - name: supplyPointID
+      in: path
+      required: true
+      schema:
+        type: integer
+        format: int64
+    get:
+      tags:
+      - RS-M11Pf - Získání informací o odběrném místě
+      summary: Služba získá informace o odběrném místě nezbytné pro provedení odhadu spotřeby.
+      description: Služba získá informace o odběrném místě nezbytné pro provedení odhadu spotřeby.
+      
+      responses:
+        200:
+          description: OK, vraci informace o odběrném místě
+          content:
+            application/json:
+              schema:
+                 $ref: "#/components/schemas/supplyPointEstimate"
+                 
+  /supplyPoint/{supplyPointID}/odbery:
+    parameters:
+    - name: supplyPointID
+      in: path
+      required: true
+      schema:
+        type: integer
+        format: int64
+    get:
+      tags:
+      - RS-M09Pf - Ziskani odberu
+      summary: Sluzba pro ziskani odberu
+      description: Sluzba pro ziskani odberu podle ID odberneho mista
+      responses:
+        200:
+          description: vraci kolekci odectu
+          content:
+            application/json:
+              schema:
+                properties:
+                 historie_bodu:
+                  $ref: '#/components/schemas/body_odectu'
+  /supplyPoint/{supplyPointID}/merak:
+    parameters:
+    - name: supplyPointID
+      in: path
+      required: true
+      schema:
+        type: integer
+        format: int64
+    - name: nova_verze
+      in: query
+      required: false
+      schema:
+        type: string
+        format: date
+    - name: odber_id
+      in: query
+      required: false
+      schema:
+        type: integer
+        
+    post:
+      tags:
+      - RS-M06Pf - Vytvoření odběru/měřáku
+      summary: Vytvoří nový odběr/měřák
+      description: Vytvoří nový odběr/měřák
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                EAN_EIC:
+                  $ref: '#/components/schemas/EAN_EIC'
+                jmeno:
+                  type: string
+                
+      responses:
+        200:
+          description: OK, naratova hodnota je ID meraku
+          content:
+            application/json:
+              schema: 
+                  type: integer
+                  description: ID odberu
+  /supplyPoint/{supplyPointID}/merak/{odber_id}:
+    parameters:
+    - name: supplyPointID
+      in: path
+      required: true
+      schema:
+        type: integer
+        format: int64
+
+    - name: odber_id
+      in: path
+      required: true
+      schema:
+        type: integer
+        
+    put:
+      tags:
+      - RS-M07P - Úprava odběru/měřáku
+      description: Umožní úpravu informací o odběru/měřáku a zjistí nutnost přepočtu cen
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                EAN_EIC:
+                  $ref: '#/components/schemas/EAN_EIC'
+                jmeno:
+                  type: string
+                meterNumber:
+                  $ref: '#/components/schemas/meterNumber'
+      responses:
+        200:
+          description: OK
+                
+    delete:
+      tags:
+      - RS-M08P - Smazani odberu/meraku
+      summary: Umozni smazani odberu/meraku
+      description: Umozni smazani odberu/meraku
+      responses:
+        200:
+          description: OK, zadna navratova hodnota
+    get:
+      tags:
+      - RS-M10Pf - Ziskani odberu
+      summary: Ziskani odberu
+      description: Ziskani odberu dle ID 
+      responses:
+        200:
+          description: Vraci odber a distributora
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  odber:
+                    $ref: '#/components/schemas/bod_odectu'
+                  distributor:
+                    $ref: '#/components/schemas/distributor'
+  /tarif:
+    post:
+      tags:
+      - RS-P01R - Vytvoreni tarifu
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                odber_id:
+                  type: integer
+                energyType:
+                  $ref: '#/components/schemas/energyType'
+                tarif:
+                  $ref: '#/components/schemas/tarif'
+      responses:
+        200:
+          description: OK, navratova hodnota je ID tarifu
+          content:
+            application/json:
+              schema:
+                type: integer
+                description: ID tarifu
+  /tarif/{tarif_id}:
+    parameters:
+    - name: tarif_id
+      in: path
+      required: true
+      schema:
+        type: integer
+    
+    delete:
+      tags: 
+      - RS-P10R - Smazani tarifu
+      summary: Umozni smazani tarifu
+      description: smaže tarif a na něj vázaná vyúčtování a smlouvu
+      responses:
+        200:  
+          description: OK, vse probehlo dobre
+  /tarif/odber:
+    parameters:
+    - name: odber_id
+      in: query
+      required: true
+      schema:
+        type: integer
+    get:
+      tags: 
+      - RS-P11Rf - Ziskani tarifu
+      description: Nacte tarif z db
+      summary: nacte tarif z db
+      
+      responses:
+        200:
+          description: OK, navraci smlouvu
+          content:
+            multipart/form-data:
+              schema:
+                type: string
+                format: binary
+  /tarif/odber/all:
+    parameters:
+    - name: odber_id
+      in: query
+      required: true
+      schema:
+        type: integer 
+    get:
+      tags: 
+      - RS-P13Rf - Získání všech uživatelských tarifů vázaných k odběru
+      description: načte tarify(všechny verze smluv) vázané k odběru
+      summary: načte tarify(všechny verze smluv) vázané k odběru
+      
+      responses:
+        200:
+          description: OK, kolekci tarifu???
+          content:
+            multipart/form-data:
+              schema:
+                type: string
+                format: binary
+  /tarif/byName:
+    parameters:
+    - name: tarifName
+      in: query
+      required: false
+      schema:
+        type: string
+    
+    - name: providerName
+      in: query
+      required: false
+      schema:
+        type: string
+    
+    get:
+     tags:
+     - RS-P14Rf - Získání ID tarifu
+     summary: Služba na základě jména dodavatele a tarifu vrací jeho ID.
+     description: Služba na základě jména dodavatele a tarifu vrací jeho ID.
+     
+     responses:
+      200:
+        description: OK, vraci tarif ID
+        content:
+          application/json:
+            schema:
+              type: integer
+  /odhad:
+    parameters:
+    - name: supplyPointID
+      in: query
+      required: true
+      description: ID odberneho mista ke kteremu patri odhad
+      schema:
+        type: integer
+    
+    post:
+      tags:
+      - RS-P02P - Sprava odhadu
+      description: TODO Umožní insert/update/delete nad odhadem spotřeby a sazby.
+      summary: TODO Umožní insert/update/delete nad odhadem spotřeby a sazby.
+      parameters: 
+      - name: operation
+        in: query
+        required: true
+        schema:
+          $ref: '#/components/schemas/operation'
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/supplyPointEstimate'
+      
+      responses:
+        200:
+          description: OK
+      
+    get:
+      tags:
+      - RS-P03Pf - Nacteni odhadu
+      description: Umozni nacteni odhadu spotreby
+      summary: Umozni nacteni odhadu spotreby
+      responses:
+        200:
+          description: OK, vraci odhad spotreby
+          content: 
+            application/json:
+              schema:
+                $ref: '#/components/schemas/supplyPointEstimate'
+  /odhad/byEstimate:
+    parameters:
+    - name: soukroma_podnikatel
+      in: query
+      required: true
+      description: is the user entrepreneur? This decides the type of possible rates offered
+      schema:
+        $ref: soukroma_podnikatel
+    - name: object_type
+      in: query
+      required: true
+      description: How is the comodity used
+      schema:
+        $ref: '#/components/schemas/objectType'
+    - name: numberOfPeople
+      in: query
+      required: true
+      description: Number of people living in the household
+      schema:
+        type: integer
+    
+    
+    - name: useType
+      in: query
+      required: false
+      description: what is the electricity used for?
+      schema:
+        $ref: '#/components/schemas/usages'
+    - name: supplier
+      in: query
+      required: false
+      description: NEEDED????
+      schema:
+        $ref: '#/components/schemas/provider'
+    - name: deposit
+      in: query
+      required: false
+      description: Monthly deposit payed under the current tariff
+      schema:
+        $ref: '#/components/schemas/deposit'
+        
+    get:
+      tags:
+      - BS-P04Pf - Odhad odběru
+      summary: Service for estimating consumption
+      description: Service for estimating yearly consumption for a household base on it's parameters
+      responses:
+        200:
+          description: OK, returns the estimate of consumption and the estimated tariff rate
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  spotreba:
+                    type: array
+                    minItems: 1
+                    maxItems: 2
+                    items:
+                      $ref: '#/components/schemas/spotreba'
+                  sazba:
+                    $ref: '#/components/schemas/sazba'
+                  
+                      
+      
+  /vyuctovani:
+    post:
+      tags:
+      - RS-P07Pf - Nahrani vyuctovani/smouvy
+      summary: Sluzba pro narani vyuctovani/smlouvy
+      description: Sluzba pro narani vyuctovani/smlouvy
+      requestBody:
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                odber_id:
+                  type: integer
+                tarif_id:
+                  type: integer
+                typ_dokumentu:
+                  type: string
+                  enum:
+                  - contract
+                  - billing
+                dokument:
+                  type: string
+                  format: binary
+      responses:
+        200:
+          description: OK, navratova hodnota je ID vyuctovani/smlouvy
+          content:
+            application/json:
+              schema:
+                type: integer
+  
+  /vyuctovani/{dokument_id}:
+    parameters:
+    - name: dokument_id
+      in: path
+      required: true
+      schema: 
+        type: object
+        properties:
+          supplyPointID:
+            type: integer
+          tarif_id:
+            type: integer
+          vyuctovani_id:
+            type: integer
+    delete:
+      tags:
+      - RS-P08Pf - Smazani vyuctovani/smlouvy
+      summary: Sluzba zajistujici smazani vyuctovani/smlouvy
+      description: Sluzba zajistujici smazani vyuctovani/smlouvy
+      responses:
+        200:
+          description: OK, vyuctovani/smlouva smazany
+  
+  /distributor/byZip/{PSC}:
+    parameters:
+    - name: PSC
+      in: path
+      required: true
+      schema:
+        type: integer
+      
+    - name: obec
+      in: query
+      required: false
+      schema:
+        type: string
+    get:
+      tags:
+      - RS-I01Pf - Získání distributora podle PSČ
+      summary: podle zadaného PSČ vyhledá distributora energie
+      description: podle zadaného PSČ vyhledá distributora energie
+      responses:
+        200:
+          description: OK, navraci distributora energiie
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/distributor'
+  
+  /user/{userID}:
+    parameters:
+    - name: userID
+      in: path
+      required: true
+      schema:
+        type: integer
+    
+    get:
+      tags:
+      - RS-U01Pf - Načtní uživatele
+      summary: Načtení uživatele a jeho osobních dat
+      description: Načtení uživatele a jeho osobních dat
+      responses:
+        200:
+          description: OK, vrací data uživatele
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/user'
+    post:
+      tags:
+      - RS-U02Pf - Správa uživatele
+      summary: Insert/Update/Delete uživatele
+      description:  Insert/Update/Delete uživatele
+      
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [operation]
+              properties:
+                operation:
+                  $ref: '#/components/schemas/operation'
+                user:
+                  $ref: '#/components/schemas/user'
+      
+      responses:
+        200:
+          description: OK operace probehla, pro insert vraci ID
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [stav]
+                properties:
+                  stav:
+                    $ref: '#/components/schemas/stav'
+                  userID:
+                    description: ID vytvořené pro INSERT uživatele
+                    type: integer
+  /user/{userID}/getPreferences:
+    parameters:
+    - name: userID
+      in: path
+      required: true
+      schema:
+        type: integer
+    
+    get:
+      tags:
+      - RS-U05Pf - Načtení preferencí
+      summary: Služba pro načtení preferencí uživatele pro zobrazení na obrazovce.
+      description: Služba pro načtení preferencí uživatele pro zobrazení na obrazovce.
+      responses:
+        200:
+          description: OK, vrací uživatelovy preference
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/preferences'
+                
+    post:
+      tags:
+      - RS-U06Pf - Správa preferencí
+      summary: Insert/Update/Delete preferencí uživatele
+      description:  Insert/Update/Delete preferencí uživatele
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                operation:
+                  $ref: '#/components/schemas/operation'
+                
+                preferences:
+                  $ref: '#/components/schemas/preferences'
+                  
+      responses:
+        200:
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/stav'
+  
+  /components:
+    parameters:
+    - name: costComponentID
+      in: query
+      required: false
+      schema:
+        type: integer
+    
+    post:
+      tags:
+      - RS-C01P - Správa rozpadu nákladů
+      summary: Provádí operaceinsert/update/delete nad rozpadem nákladů ke konkrétnímu výpočtu ceny. Vrátí identifikátor uloženého rozpadu.
+      description: Provádí operaceinsert/update/delete nad rozpadem nákladů ke konkrétnímu výpočtu ceny. Vrátí identifikátor uloženého rozpadu.
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                operation:
+                  $ref: '#/components/schemas/operation'
+                costComponent:
+                  $ref: '#/components/schemas/costComponent'
+      responses:
+        200:
+          description: OK, vrací identifikátor vloženého rozpadu
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [stav]
+                properties:
+                  stav:
+                    $ref: '#/components/schemas/stav'
+                  costComponentID:
+                    type: integer
+  /components/{costComponentID}:
+    parameters:
+    - name: costComponentID
+      in: path
+      required: true
+      schema:
+        type: integer
+    
+    get:
+      tags:
+      - RS-C04Pf - Načtení rozpadu nákladů
+      summary: Slouží k načtení konkrétního rozpadu nákladů.
+      description: Slouží k načtení konkrétního rozpadu nákladů.
+      responses:
+        200:
+          description: OK, vraci data rozpadu
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/costComponent'
+  /providersAndProducts/{energyType}:
+    parameters:
+    - name: energyType
+      in: path
+      required: true
+      schema:
+        $ref: '#/components/schemas/energyType'
+    get:
+      tags:
+      - RS-C05Rf - Získání všech dodavatelů a produktů
+      summary: Načte z databáze všechny dodavatele a jejich produkty
+      description: Načte z databáze všechny dodavatele a jejich produkty
+      responses:
+        200:
+          description: OK, vraci dodavatele a jejich produkty
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    providerID:
+                      type: integer
+                    providerName:
+                      type: string
+                    productID:
+                      type: integer
+                    productName:
+                      type: string
+  /product:
+    parameters:
+    - name: date
+      in: query
+      required: true
+      schema:
+        type: string
+        format: date
+    - name: conditions
+      in: query
+      required: false
+      schema:
+        type: array
+        items:
+          $ref: '#/components/schemas/condition'
+    get:
+      tags:
+      - RS-C10R - Výběr produktů
+      summary: Na základě vstupních podmínek vybere z produktového katalogu vhodné produkty.
+      description: Na základě vstupních podmínek vybere z produktového katalogu vhodné produkty.
+      responses:
+        200:
+          description: ok, vrací kolekci odpovídajících odavatelů a produktů
+          content: 
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    providerID:
+                      type: integer
+                    productID:
+                      type: integer
+  /product/{productID}:
+    parameters:
+    - name: productID
+      in: path
+      required: true
+      schema:
+        type: integer
+    
+    get:
+      tags:
+      - RS-C11Rf - Detail produktu
+      summary: Načte detail produktu.
+      description: Načte detail produktu.
+      responses:
+        200:
+          description: OK, vraci detaily produktu
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/product'
+  /provider/{providerID}:
+    parameters:
+    - name: providerID
+      in: path
+      required: true
+      schema:
+        type: integer
+    
+    get:
+      tags:
+      - RS-C12Rf - Detail dodavatele
+      summary: Poskytne detail dodavatele.
+      description: Poskytne detail dodavatele.
+      responses:
+        200:
+          description: OK, vraci detaily dodavatele
+          content:
+            applcation/json:
+              schema:
+                $ref: '#/components/schemas/provider'
+  /transfer:
+    post:
+      tags:
+      - RS-T01Pf - Správa transferu
+      summary: Provádí Insert/Update/Delete v entitě transferu
+      description: Provádí Insert/Update/Delete v entitě transferu
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [operation]
+              properties:
+                operation:
+                  $ref: '#/components/schemas/operation'
+                transferID:
+                  type: integer
+                newTariffID:
+                  type: integer
+                oldTariffID:
+                  type: integer
+                transfer:
+                  $ref: '#/components/schemas/transfer'
+                dateOfDelivery:
+                  description: datum redani dodavateli
+                  type: string
+                  format: date
+                dateOfConfirmation:
+                  description: datum potvrzeni dodavatelem
+                  type: string
+                  format: date
+                
+      responses:
+        200:
+          description: OK,vraci  stav operace a ID transferu pro operaci insert
+          content:
+            applicaion/json:
+              schema:
+                type: object
+                required: [stav]
+                properties:
+                  stav:
+                    $ref: '#/components/schemas/stav'
+                  transferID:
+                    type: integer
+  /transfer/{transferID}:
+    parameters:
+    - name: transferID
+      in: path
+      required: true
+      schema:
+        type: integer
+    get:
+      tags:
+      - RS-T02Pf - Zobrazeni transferu
+      summary: Poskytne informace o transferu
+      description: Poskytne informace o transferu
+      responses:
+        200:
+          description: OK, vraci entitu transferu
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/transfer'
+  /transfer/byCondition:
+    parameters:
+    - name: userID
+      in: query
+      required: false
+      schema:
+        type: integer
+    - name: oldProviderID
+      in: query
+      required: false
+      schema:
+        type: integer
+    - name: newProviderID
+      in: query
+      required: false
+      schema:
+        type: integer
+    - name: fromDate
+      in: query
+      required: false
+      schema:
+        type: string
+        format: date
+    - name: toDate
+      in: query
+      required: false
+      schema:
+        type: string
+        format: date
+    - name: transferState
+      in: query
+      required: false
+      schema:
+        $ref: '#/components/schemas/transferState'
+    
+    get:
+      tags:
+      - RS-T03Pf - Seznam transferu
+      summary: Vraci seznam transferu dle zadanych podminek
+      description: Vraci seznam transferu dle zadanych podminek
+      responses:
+        200:
+          description: OK, vraci kolekci transferu
+          content:
+            application/json:
+              schema: 
+                type: array
+                items:
+                  $ref: '#/components/schemas/transfer'
+  /notification:
+    parameters:
+    - name: type
+      in: query
+      required: true
+      schema:
+        type: string
+        enum:
+        - generated
+        - sent
+        - reaction
+    - name: notificaionID
+      in: query
+      required: false
+      description: ID pro operace mimo Insert
+      schema:
+        type: integer
+    post:
+      tags:
+      - RS-N02P - Sprava notifikaci
+      summary: Umožňuje provádět insert/update/delete nad seznamem vygenerovaných notifikací v NotificationGenerated a vkládání a) reakcí na ně do NotificationReaction, b) jejich jednotlivých zaslání do NotificationSent.
+      description: Umožňuje provádět insert/update/delete nad seznamem vygenerovaných notifikací v NotificationGenerated (type = generated)a vkládání a) reakcí na ně do NotificationReaction (type = reaction), b) jejich jednotlivých zaslání do NotificationSent (type = sent). 
+      requestBody:
+        content:
+          application/json:
+            schema:
+              oneOf:
+              - $ref: '#/components/schemas/notificationGenerated'
+              - $ref: '#/components/schemas/notificationReaction'
+              - $ref: '#/components/schemas/notificationSent'
+      responses:
+        200:
+          description: OK, vraci stav operace a ID notifikace pro pripad insert
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [stav]
+                properties:
+                  stav:
+                    $ref: '#/components/schemas/stav'
+                  notificationID:
+                    type: integer
+                    
+  /notification/{type}:
+    parameters:
+    - name: userID
+      in: query
+      required: false
+      schema:
+        type: integer
+    - name: supplyPointID
+      in: query
+      required: false
+      schema:
+        type: integer
+    - name: meterReadingID
+      in: query
+      required: false
+      schema:
+        type: integer
+    - name: tariffID
+      in: query
+      required: false
+      schema:
+        type: integer
+    - name: notificationID
+      in: query
+      required: false
+      schema:
+        type: integer
+    - name: valid
+      in: query
+      required: false
+      schema:
+        type: boolean
+    - name: type
+      in: path
+      required: true
+      schema:
+        type: string
+        enum:
+        - generated
+        - sentAndReaction
+    
+    get:
+      tags:
+      - RS-N01P - Načtení notifikací
+      summary: Načítá notifikace relevantní pro daného uživatele/odběrné místo/odběr/tarif, případně konkrétní notifikaci.
+      description: Načítá notifikace relevantní pro daného uživatele/odběrné místo/odběr/tarif, případně konkrétní notifikaci.
+      responses:
+       200:
+        description: OK, vraci data v zavislosti na parametru type
+        content:
+          application/json:
+            schema:
+              oneOf:
+              - type: array
+                items:
+                  $ref: '#/components/schemas/notificationGenerated'
+              - type: array
+                items:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      sent:
+                        $ref: '#/components/schemas/notificationSent'
+                      reaction:
+                        $ref: '#/components/schemas/notificationReaction'
+  /notification/setting/{userID}:
+    parameters:
+    - name: userID
+      in: path
+      required: true
+      schema:
+        type: integer
+    
+    get:
+      tags:
+      - RS-N03Pf - Načtení nastavení notifikací
+      summary: Načítá uživatelské nastavení notifikací z entity NotificationSettings.
+      description: Načítá uživatelské nastavení notifikací z entity NotificationSettings.
+      responses:
+        200:
+          description: OK, vraci nastaveni notifikaci
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/notificationSetting'
+    
+    post:
+      tags:
+      - RS-N04Pf - Správa nastavení notifikací
+      summary: Provádí insert/update/delete uživatelského nastavení notifikací v entitě NotificationSettings.
+      description: Provádí insert/update/delete uživatelského nastavení notifikací v entitě NotificationSettings.
+      responses:
+        200:
+          description: OK, vraci stav akce a id pro insert
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [stav]
+                properties:
+                  stav:
+                    $ref: '#/components/schemas/stav'
+                  settingID:
+                    type: integer
+  /log:
+    post:
+      tags:
+      - RS-L01Pf - Logovani
+      summary: Služba pro logování průchodu systémem
+      description:  Služba pro logování průchodu systémem
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/log'
+      responses:
+        200:
+          description: OK
+  /hint/{questionID}:
+    parameters:
+    - name: questionID
+      in: path
+      required: true
+      schema:
+        type: integer
+    
+    get:
+      summary: Poskytne vysvetlivku pojmu
+      description: Poskytne vysvetlivku pojmu
+      
+      responses:
+        200:
+          description: OK, vraci vysvetlivku pojmu
+          content:
+            aplication/json:
+              schema:
+                $ref: '#/components/schemas/hint'
+    
+components:
+  schemas:
+    hint:
+      type: string
+    log:
+      type: object
+      properties:
+        date:
+          type: string
+          format: date
+        actionID:
+          type: integer
+        context:
+          $ref: '#/components/schemas/context'
+    context:
+      type: string
+    notificationGenerated:
+      type: object
+      properties:  
+        dateSent:
+          type: string
+          format: date
+        isActive:
+          type: boolean
+        activeUntil:
+          type: string
+          format: date
+        isPostponed:
+          type: boolean
+        datePostponed:
+          type: string
+          format: date
+    notificationSent:
+      type: object
+      properties:
+        channelType:
+          $ref: '#/components/schemas/notificationChannel'
+        dateTime:
+          type: string
+          format: date
+    notificationReaction:
+      type: object
+      properties:
+        reactionType:
+          $ref: '#/components/schemas/reactionType'
+        reactionDate:
+          type: integer
+          format: date
+    reactionType:
+      type: string
+    
+    notificationTemplates:
+      type: object
+      properties:
+        idNotification:
+          type: integer
+        idVersion:
+          type: integer
+          description: verze templatu
+        parameters:
+          type: array
+          items:
+            $ref: '#/components/schemas/parameter'
+        template:
+          type: string
+          description: template pro text notifikace
+        actionType:
+          $ref: '#/components/schemas/actionType'
+    actionType:
+      type: string
+      description: typ akce pri prokliku notiikace
+    
+    notificationSetting:
+      type: object
+      properties:
+        notificationType:
+          $ref: '#/components/schemas/notificationType'
+        isSet:
+          type: boolean
+        params:
+          type: array
+          items:
+            $ref: '#/components/schemas/parameter'
+        notificationChannels:
+          type: array
+          items:
+            $ref: '#/components/schemas/notificationChannel'
+    notificationType:
+      type: string
+    parameter:
+      type: string
+    notificationChannel:
+      type: string
+      enum:
+      - email
+      - oznameni
+    transfer:
+      type: object
+      properties:
+        transferStartDate:
+          type: string
+          format: date
+        transferState:
+          $ref: '#/components/schemas/transferState'
+        stateStartDate:
+          type: string
+          format: date
+        stateEndDate:
+          type: string
+          format: date
+        signatreType:
+          $ref: '#/components/schemas/signatureType'
+        expectedSupplyStart:
+          type: string
+          format: date
+        documentTypeRequired:
+          type: array
+          items:
+            type: object
+            properties:
+              documentType:
+                $ref: '#/components/schemas/docType'
+              documentID:
+                type: integer
+              isDocumentSubmitted:
+                type: boolean
+    transferState:
+      type: string
+    signatureType:
+      type: string
+      enum:
+      - SMS
+      - fyzicky
+    docType:
+      type: string
+      enum:
+      - smlouva
+      - vyuctovani
+      - VOP
+      - cenik
+      - plnaMoc
+      - ostatni
+    document:
+      type: object
+      properties:
+        docName:
+          type: string
+        docType:
+          $ref: '#/components/schemas/docType'
+        signatureType:
+          $ref: '#/components/schemas/signatureType'
+        signatureDate:
+          type: string
+          format: date
+        signatureKey:
+          $ref: '#/components/schemas/signatureKey'
+        metadata:
+          type: array
+          items:
+            type: string
+    signatureKey:
+      type: string
+    condition:
+      type: object
+      properties:
+        conditionType:
+          $ref: '#/components/schemas/conditionType'
+        atribute:
+          $ref: '#/components/schemas/atribute'
+        criteria:
+          $ref: '#/components/schemas/criteria'
+    conditionType:
+      type: string
+    atribute:
+      type: string
+    criteria:
+      type: string
+    component:
+          type: object
+          properties:
+            costComponent:
+              type: string
+              enum: 
+                - silova
+                - distribuce
+                - dan
+                - systemoveSluzby
+                - OTE
+                - OZE
+            costUnitType:
+              $ref: '#/components/schemas/costUnitType'
+            unit:
+              $ref: '#/components/schemas/unit'
+            totalCostTax:
+              type: number
+            totalCost:
+              type: number
+            unitCost:
+              type: number    
+    
+    costComponent:
+      description: Rozpad nakladu
+      type: array
+      items:
+        $ref: '#/components/schemas/component'
+        
+        
+    
+    unit:
+      type: string
+      enum:
+      - month
+      - MWh
+    costUnitType:
+      type: string
+      enum:
+      - MWh_VT
+      - MWh_NT
+      - pausal
+    preferences:
+      type: array
+      items:
+        $ref: '#/components/schemas/preference'
+    
+    preference:
+      type: string
+      
+    stav:
+      description: stav provedeni operace
+      type: string
+      
+    git_try:
+      $ref: 'https://raw.githubusercontent.com/qayqayqay/trySwag/master/openapi.json#/components/schemas/bod_odectu'
+    
+    bankAcc:
+      type: string
+    
+    company:
+      type: object
+      properties:
+        ICO:
+          type: integer
+        DIC:
+          type: integer
+        name:
+          type: string
+      
+    user:
+      description: collection of user information
+      type: object
+      required: [username, password]
+      properties:
+        username:
+          type: string
+        password:
+          type: string
+        
+        name: 
+          type: string
+        surname:
+          type: string
+        birthDate:
+          type: string
+          format: date
+        RC:
+          type: integer
+        phone:
+          type: integer
+        email:
+          type: string
+        bankAccount:
+          $ref: "#/components/schemas/bankAcc"
+        company:
+          $ref: '#/components/schemas/company'
+        VATPayer:
+          type: boolean
+        
+    sazba:
+      type: string
+    deposit:
+      type: integer
+    provider:
+      type: object
+      properties:
+        name:
+          type: string
+        logo:
+          type: string
+          format: binary
+        rating:
+          $ref: '#/components/schemas/rating'
+        readingTypes:
+          type: array
+          items:
+            $ref: '#/components/schemas/readingType'
+        billingPeriods:
+          type: array
+          items:
+            $ref: '#/components/schemas/billingPeriod'
+        paymentTypes:
+          type: array
+          items:
+            $ref: '#/components/schemas/paymentType'
+        overPaymentHanglings:
+          type: array
+          items:
+            $ref: '#/components/schemas/overPaymentHandling'
+
+
+        commision:
+          type: array
+          items:
+            $ref: '#/components/schemas/commision'
+    
+    commision:
+      type: object
+      properties:
+        type:
+          type: string
+        value:
+          type: number
+          
+    overPaymentHandling:
+      type: string
+      enum:
+      - moneyTransfer
+      - check
+      - cash
+      - nextDeposit
+    paymentType:
+      type: string
+      enum:
+      - wire
+      - card
+      - moneyTransfer
+      - cash
+      - check
+    billingPeriod:
+      type: string
+      enum:
+      - month
+      - quarter
+      - half
+      - year
+      
+    readingType:
+      type: string
+      enum:
+      - A
+      - B
+      - C
+      - D
+    rating:
+      type: string
+    soukromy_podnikatel:
+      type: string
+      enum:
+      - household
+      - entrepreneur
+
+    advantage:
+      type: string
+    
+    disadvantage:
+      type: string
+      
+    
+    product:
+      type: object
+      properties:
+        energyType:
+          $ref: '#/components/schemas/energyType'
+        contractDurationType:
+          type: array
+          items:
+            $ref: '#/components/schemas/contractDurationType'
+        contractDuration:
+          type: array
+          items:
+            $ref: '#/components/schemas/contractDuration'
+        contractEnd:
+          type: array
+          items:
+            $ref: '#/components/schemas/contractEnd'
+        contractEndEvent:
+          $ref: '#/components/schemas/contractEndEvent'
+        autoExtensionBy:
+          type: integer
+        
+        fixedPriceType:
+          $ref: '#/components/schemas/fixedPriceType'
+        fixedPricePeriod:
+          $ref: '#/components/schemas/fixedPricePeriod'
+        fixedPriceTo:
+          $ref: '#/components/schemas/fixedPriceTo'
+        
+        priceCalculationType:
+          $ref: '#/components/schemas/priceCalculationType'
+        advantages:
+          type: array
+          items:
+            $ref: '#/components/schemas/advantage'
+        disadvantages:
+          type: array
+          items: 
+            $ref: '#/components/schemas/disadvantage'
+        energyComposition:
+          type: array
+          items:
+            type: string
+        isGreenEnergy:
+          type: boolean
+        rates:
+          type: array
+          items:
+            $ref: '#/components/schemas/rate'
+        agreementConditions:
+          type: array
+          items:
+            $ref: '#/components/schemas/agreementCondition'
+        validFromTo:
+          type: array
+          minItems: 2
+          maxItems: 2
+          items: 
+            type: string
+            format: date
+        isEnabled:
+          type: boolean
+        isOnline:
+          type: boolean
+    agreementCondition:
+      type: string
+    rate:
+      type: string
+    priceCalculationType:
+      type: string
+    fixedPriceTo:
+      type: string
+    fixedPricePeriod:
+      type: string
+    fixedPriceType:
+      type: string
+    contractEndEvent:
+      type: string
+      enum:
+      - endOfProduct
+      - prechodNaJinyProdukt
+      - autimatickeProdlouzeni
+    contractEnd:
+      type: string
+    contractDuration:
+      type: integer
+    contractDurationType:
+      type: string
+      enum:
+      - urcita
+      - neurcita
+    distributor:
+      description: distributor komodity
+      type: object
+      properties:
+        name: 
+          type: string
+        provides:
+          type: array
+          items:
+            $ref: '#/components/schemas/energyType'
+        tarif_ids:
+          type: array
+          items:
+            type: integer
+      
+    operation:
+      type: string
+      enum:
+      - insert
+      - update
+      - delete
+    
+    tarif:
+      description: kolekce informaci o tarifu
+      type: object
+      properties:
+        name:
+          type: string
+        energyType:
+          $ref: '#/components/schemas/energyType'
+        unit_price:
+          type: number
+          format: float
+        currency:
+          type: string
+        valid_from:
+          type: string
+          format: date-time
+        valid_to:
+          type: string
+          format: date-time
+        contract_duration_months:
+          type: integer
+        fixed_price_duration_months:
+          type: integer
+        advantages:
+          type: array
+          items: 
+            $ref: '#/components/schemas/advantage'
+        disadvantages:
+          type: array
+          items:
+            $ref: '#/components/schemas/disadvantage'
+        green_energy:
+          type: boolean
+        mozne_sazby:
+          type: array
+          items:
+            anyOf:
+              - $ref: '#/components/schemas/jistic'
+              - $ref: '#/components/schemas/pasmo_spotreby'
+    
+    pasmo_spotreby:
+      type: string
+      
+
+    EAN_EIC:
+      description: Identifikační číslo distributora a odběrného místa (18 a 16 čísel)
+      type: object
+      properties:
+        EAN:
+          type: integer
+          description: Identifikační číslo distributora
+        EIC:
+          type: integer
+          description: Identifikační číslo odběrného místa
+    
+    energyType:
+      type: string
+      enum:
+      - electricity
+      - gas
+      - water
+    
+    odber_jmeno:
+      type: object
+      properties:
+        jmeno:
+          type: string
+        adresa:
+          type: string
+        distributor:
+          type: string
+    
+    obdobi_typ:
+          type: string
+          enum: ["Reálné","Predikce"]      
+    
+    zdroj:
+          type: string
+          enum: ["Odečty","Dodavatel"]    
+    
+    obdobi:
+      title: Období
+      description: Kolekce informací o zůčtovacím období
+      type: object
+      properties:
+        zdroj:
+          $ref: '#/components/schemas/zdroj'
+        obdobi_typ:
+          $ref: '#/components/schemas/obdobi_typ'
+        datum_od:
+          type: string
+          format: date
+        datum_do:
+          type: string
+          format: date
+        spotreba_VT:
+          type: integer
+          format: int64
+        spotreba_NT:
+          type: integer
+          format: int64
+        spotreba_plyn_m3:
+          type: integer
+          format: int64
+        spotreba_plyn_MWh:
+          type: number
+          format: float
+        naklady_VT:
+          type: number
+          format: float
+        naklady_NT:
+          type: number
+          format: float
+        naklady_plyn:
+          type: number
+          format: float
+        cislo_vyuctovani:
+          type: integer
+          format: int64
+        cena_s_DPH:
+          type: number
+          format: float
+        cena_bez_DPH:
+          type: number
+          format: float
+        uplatnena_sleva:
+          type: string
+        pasmo_spotreby:
+          type: integer
+        rozklad_ceny:
+          $ref: '#/components/schemas/cena' 
+    
+    cena:
+      title: cena
+      description: cena za jednotku komodity
+      type: object
+      properties:
+        cena_za_jednotku:
+          title: cena_za_jednotku
+          type: number
+          format: float
+          example: 0.1
+        rozklad_ceny:
+          $ref: '#/components/schemas/rozklad_ceny'
+
+    rozklad_ceny:
+          title: rozkladkomodity
+          type: object
+          properties:
+            regulovana_cast:
+              type: number
+              format: float
+              example: 0.1
+            neregulovana_cast:
+              type: number
+              format: float
+              example: 0.1      
+    
+    spotreba:
+      title: spotreba_komodit
+      description: kolekce spotreb pro ruzne komodity
+      type: object
+      properties:
+        jednotky:
+          title: jednotky
+          description: jednotky mereni komodity
+          type: string
+          enum: [m3, kWh]
+        dimenze:
+          title: dimenze
+          description: upresneni merene hodnoty
+          type: string
+          enum: [NT, VT, plyn, voda]
+        hodnota:
+          title: hodnota
+          type: integer
+          example: 3000
+        cena:
+          $ref: '#/components/schemas/cena'
+
+    jistic:
+      type: string
+
+    meterNumber:
+      type: integer
+      format: int64
+      
+    supplyPoint:
+      title: odberne misto
+      description: ""
+      type: object
+      properties:
+        name:
+          $ref: '#/components/schemas/odber_jmeno'
+        energyType:
+          $ref: '#/components/schemas/energyType'
+        EAN/EIC:
+          $ref: '#/components/schemas/EAN_EIC'
+        meterNumber:
+          $ref: '#/components/schemas/meterNumber'
+        installDate:
+          type: string
+          format: date
+        meterType:
+          $ref: '#/components/schemas/meterType'
+        meterPlacement:
+          $ref: '#/components/schemas/meterPlacement'
+        flatNr:
+          $ref: '#/components/schemas/flatNr'
+        floor:
+          type: integer
+        body:
+          $ref: '#/components/schemas/body_odectu'
+    meterType:
+      type: string
+    meterPlacement:
+      type: string
+    flatNr:
+      type: string
+    typ_odectu:
+      title: typ_odectu
+      type: string
+      enum:
+      - zadaný
+      - dopočtený
+    
+    body_odectu:
+                    title: body_odectu
+                    description: Kolekce historie bodu odectu
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/bod_odectu'
+    
+    bod_odectu:
+     title: bod_odectu
+     description: jedna instance bodu odectu
+     type: object
+     properties:
+      datum_odectu:
+        title: datum_odectu
+        description: Datum provedeni odectu
+        type: string
+        format: date
+      typ_odectu:
+        $ref: '#/components/schemas/typ_odectu'
+      zmena_ceniku:
+        title: zmena ceniku
+        description: priznak zmeny ceniku
+        type: boolean
+      vyuctovani:
+        title: vyuctovani
+        description: priznak vyuctovani
+        type: boolean
+      vyber:
+        title: vyber
+        description: priznak vyberu
+        type: string
+        enum: [plyn, elektrina, voda]
+      stav_2:
+        title: stavy meraku
+        description: kolekce stavu odberu pro ruzne komodity
+        type: array
+        items:
+          $ref: '#/components/schemas/spotreba'
+      novy_merak_stav_2:
+        title: stavy noveho meraku
+        description: kolekce stavu odberu pro ruzne komodity
+        type: array
+        items:                        
+          $ref: '#/components/schemas/spotreba'                                     
+      spotreba_2:
+        title: stavy spotreby
+        description: kolekce stavu spotreby pro ruzne komodity
+        type: array
+        items:                        
+          $ref: '#/components/schemas/spotreba' 
+                            
+    objectType:
+      type: string
+      enum:
+      - flat
+      - house
+      - cottage
+    
+    usages:
+      type: string
+      enum:
+      - light
+      - cooking
+      - waterHeating
+      - heating
+      - heatPump
+      - carCharging
+      
+    supplyPointEstimate:
+      type: object
+      properties:
+        date:
+          type: string
+          format: date
+        objectType:
+          $ref: '#/components/schemas/objectType'
+        residentsCount:
+          type: integer
+        usages:
+          type: array
+          items:
+            $ref: '#/components/schemas/usages'
+        deposit:
+          type: number
+          format: float
+        rate:
+          $ref: '#/components/schemas/rate'
+        consumption:
+          type: array
+          minItems: 1
+          maxItems: 2
+          items:
+            $ref: '#/components/schemas/spotreba'
+        cost:
+          $ref: '#/components/schemas/cena'
+        
+      
+      
